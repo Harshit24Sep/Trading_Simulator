@@ -1,4 +1,6 @@
 #include "OrderBook.h"
+#include <fstream>
+#include <sstream>
 
 class MatchingEngine
 {
@@ -21,6 +23,7 @@ class MatchingEngine
         void modifyOrder(int orderId, int newQuantity, double newPrice);
         void printOrderBook();
         void waitForAllOrdersToComplete();
+        void addDummyOrder();
 
 };
 
@@ -261,3 +264,28 @@ void MatchingEngine::waitForAllOrdersToComplete()
     threads.clear();
 }
 
+void MatchingEngine::addDummyOrder()
+{
+    std::ifstream file("DummyOrder.yaml");
+    std::string line;
+    while(std::getline(file, line))
+    {
+        std::istringstream is(line);
+        bool isBuy;
+        std::string typeStr;
+        std::string symbol;
+        int id;
+        int quantity;
+        double price;
+
+        is >> isBuy >> typeStr >> symbol >> id >> quantity >> price;
+        Order o1;
+        o1.symbol =symbol;
+        o1.isBuy = isBuy;
+        o1.id = id;
+        o1.quantity = quantity;
+        o1.price = price;
+        o1.type = (typeStr == "LIMIT") ? OrderType::Limit : OrderType::Market;
+        orderBook.addOrder(o1);
+    }
+}
