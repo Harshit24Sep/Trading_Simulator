@@ -1,6 +1,7 @@
 #include "OrderBook.h"
 #include <fstream>
 #include <sstream>
+#include <deque>
 
 class MatchingEngine
 {
@@ -9,6 +10,9 @@ class MatchingEngine
         std::unordered_map< int, Order> allOrders;
         std::vector<std::thread> threads;
         std::mutex gLock;
+        std::unordered_map<std::string, std::deque<double>> historicalPrices;
+        std::unordered_map<std::string, double> stockAverages; 
+        const double deviationThresholds = 0.02;
 
         void matchMarketOrder(const Order &order);
         void matchMarketBuyOrder(const Order &order);
@@ -16,6 +20,9 @@ class MatchingEngine
         void matchLimitOrder(const Order &order);
         void matchLimitSellOrder(const Order &order);
         void matchLimitBuyOrder(const Order &order);
+        void calculateStockAverage(const std::string &symbol);
+        void applyMeanReversionStrategy(const std::string &symbol);
+        void updatePrice(const std::string &symbol, double price);
 
     public:
         void addOrder(const Order &order);
@@ -24,6 +31,7 @@ class MatchingEngine
         void printOrderBook();
         void waitForAllOrdersToComplete();
         void addDummyOrder();
+        void executeMeanReversionStrategy(const std::string &symbol); // Method to execute momentum strategy
 
 };
 
@@ -218,6 +226,9 @@ void MatchingEngine::addOrder(const Order &order)
         threads.emplace_back(&MatchingEngine::matchMarketOrder, this, order);
     else
         threads.emplace_back(&MatchingEngine::matchLimitOrder, this, order);
+
+    if (order.type == OrderType::Market || order.type == OrderType::Limit)
+        updatePrice(order.symbol, order.price);
 }
 
 void MatchingEngine::cancelOrder(int orderId)
@@ -287,5 +298,57 @@ void MatchingEngine::addDummyOrder()
         o1.price = price;
         o1.type = (typeStr == "LIMIT") ? OrderType::Limit : OrderType::Market;
         orderBook.addOrder(o1);
+        updatePrice(o1.symbol, o1.price);
     }
+}
+
+void MatchingEngine::calculateStockAverage(const std::string &symbol)
+{
+    double sum = 0.0;
+    for (double price : historicalPrices[symbol]) {
+        sum += price;
+    }
+    stockAverages[symbol] = sum / historicalPrices[symbol].size();
+}
+
+void MatchingEngine::updatePrice(const std::string &symbol, double price)
+{
+    std::lock_guard<std::mutex> lock(gLock);
+    historicalPrices[symbol].push_back(price);
+    
+    if(historicalPrices[symbol].size()>8)
+        historicalPrices[symbol].pop_front();
+
+    calculateStockAverage(symbol);
+}
+
+void MatchingEngine::applyMeanReversionStrategy(const std::string &symbol)
+{
+    
+    double currentPrice = historicalPrices[symbol].back();
+    double averagePrice = stockAverages[symbol];
+    double deviation = currentPrice - averagePrice;
+    
+    std::cout<<"Stock Analysis report for Stock "<<symbol<<std::endl;
+    std::cout<<"Average price is :"<<averagePrice<<" Deviation is :"<<deviation<<std::endl;
+    
+    if (deviation < -1*(deviationThresholds*averagePrice)) {
+        // Buy signal
+        std::cout<<"Buy Signal for Stock : "<<symbol<<std::endl;
+        //addOrder(buyOrder);
+    }
+    else if (deviation > (deviationThresholds*averagePrice)) {
+        // Sell signal
+        std::cout<<"Sell Signal for Stock : "<<symbol<<std::endl;
+        //addOrder(sellOrder);
+    }
+    else
+        std::cout<<"No Buy/Sell Signal found for Stock : "<<symbol<<std::endl;
+
+}
+
+void MatchingEngine::executeMeanReversionStrategy(const std::string &symbol)
+{
+    std::lock_guard<std::mutex> lock(gLock);
+    applyMeanReversionStrategy(symbol);
 }

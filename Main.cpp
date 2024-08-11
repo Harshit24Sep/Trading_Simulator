@@ -2,14 +2,13 @@
 #include <iostream>
 
 
-
 int main()
 {
     MatchingEngine engine;
     engine.addDummyOrder();
     engine.printOrderBook();
     // while using order always make sure that you keep ID value more than 50.
-
+    engine.executeMeanReversionStrategy("TCS");
     // Adding Limit Order
     //engine.addOrder(Order(true,"RVNL",51,10,460.10)); //buy limit order
     //engine.addOrder(Order(false,"RVNL",52,10,460.10)); //sell limit order

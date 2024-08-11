@@ -78,5 +78,5 @@ void OrderBook::printOrderBook()
                       << " Price: " << order.price << " Quantity: " << order.quantity << "\n";
         }
     }
-
+    std::cout<<std::endl;
 }
